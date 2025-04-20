@@ -1,0 +1,146 @@
+import uuid
+import random
+import pandas as pd
+from faker import Faker
+
+fake = Faker()
+Faker.seed(0)
+
+# Sample data for controlled randomness
+countries = {
+    "US": ["Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "Delaware", "Florida", "Georgia"],
+    "UK": ["England", "Scotland", "Wales", "Northern Ireland"],
+    "IN": ["Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"],
+    "CA": ["Ontario", "Quebec", "British Columbia", "Alberta", "Manitoba", "New Brunswick", "Newfoundland and Labrador", "Nova Scotia", "Prince Edward Island", "Saskatchewan"],
+    "AU": ["New South Wales", "Queensland", "Victoria", "Western Australia", "Tasmania", "South Australia", "Australian Capital Territory", "Northern Territory"]
+}
+
+# Country Calling codes
+country_codes = {"US": "+1", "UK": "+44", "IN": "+91", "CA": "+1", "AU": "+61"}
+
+#Categories 
+categories = ["Electronics", "Clothing", "Books", "Home Appliances", "Toys"]
+
+# Generate Customers Data
+def generate_customers(n=10000):
+    data = []
+    emails = set()  # To ensure unique emails
+    for _ in range(n):
+        country = random.choice(list(countries.keys()))
+        state = random.choice(countries[country])
+        name = fake.name()
+        name_cleaned = name.replace(" ", "").lower()
+        email = f"{name_cleaned}{random.randint(1, 9999)}@gmail.com"
+        while email in emails:  # Ensure unique email
+            email = f"{name_cleaned}{random.randint(1, 9999)}@gmail.com"
+        emails.add(email)
+        customer = {
+            "customer_id": str(uuid.uuid4()),
+            "customer_name": name,
+            "email": email,
+            "phone_number": f"{country_codes[country]} {fake.msisdn()[:10]}",
+            "state": state,
+            "country": country
+        }
+        data.append(customer)
+    return pd.DataFrame(data)
+
+# Generate Products Data
+def generate_products(n=1000):
+    product_names = {
+        "Electronics": ["Smartphone", "Tablet", "Laptop", "Smartwatch"],
+        "Clothing": ["Jeans", "Shirt", "Jacket", "Sweater"],
+        "Books": ["Fiction", "Non-fiction", "Science", "Biography"],
+        "Home Appliances": ["Vacuum Cleaner", "Microwave", "Blender", "Toaster"],
+        "Toys": ["Action Figure", "Doll", "Puzzle", "Board Game"]
+    }
+
+    data = []
+    for idx, category in enumerate(categories, start=1):
+        for _ in range(n // len(categories)):
+            product = {
+                "product_id": str(uuid.uuid4()),
+                "product_name": random.choice(product_names[category]),
+                "category_id": idx,
+                "rating": round(random.uniform(1, 5), 1),
+                "profit": round(random.uniform(2, 15), 2)
+            }
+            data.append(product)
+    return pd.DataFrame(data)
+
+# Generate Orders Data
+def generate_orders(n=10000, customer_data=[]):
+    data = []
+    for _ in range(n):
+        customer = random.choice(customer_data)
+        for _ in range(random.randint(1, 3)):  # Some customers may order more than 1
+            order = {
+                "order_id": f"{customer['country']}-{str(uuid.uuid4())[:8]}",
+                "payment_method": random.choice(["Credit Card", "PayPal", "Bank Transfer", "Cash on Delivery"]),
+                "cart_status": random.choice(["Completed", "Pending", "Cancelled"]),
+                "order_date": fake.date_this_decade(),
+                "customer_id": customer['customer_id'],
+                "country": customer['country']  # Assigning order with respective country
+            }
+            data.append(order)
+    return pd.DataFrame(data)
+
+# Generate Order Details Data
+def generate_order_details(orders_df, products_df):
+    data = []
+    for _, order in orders_df.iterrows():
+        product = random.choice(products_df.to_dict('records'))
+        quantity = random.randint(1, 5)
+        order_detail = {
+            "order_id": order['order_id'],
+            "product_id": product['product_id'],
+            "category_id": product['category_id'],
+            "quantity": quantity,
+            "price_per_unit": round(random.uniform(10, 200), 2),
+            "total_profit": round(product['profit'] * quantity, 2)
+        }
+        data.append(order_detail)
+    return pd.DataFrame(data)
+
+# Generate Shipments Data
+def generate_shipments(orders_df):
+    data = []
+    for _, order in orders_df.iterrows():
+        shipment = {
+            "order_id": order['order_id'],
+            "order_status": random.choice(["Shipped", "Delivered", "In Transit", "Returned"]),
+            "shipment_date": fake.date_this_decade(),
+            "delivery_date": fake.date_this_decade(),
+            "return_date": fake.date_this_decade() if random.random() < 0.1 else None,
+            "return_status": random.choice(["Returned", "Not Returned"])
+        }
+        data.append(shipment)
+    return pd.DataFrame(data)
+
+# Generate Category Data
+def generate_category():
+    data = [{
+        "category_id": i + 1,
+        "category_name": category,
+        "description": fake.sentence()
+    } for i, category in enumerate(categories)]
+    return pd.DataFrame(data)
+
+# Generate Data 
+customers_df = generate_customers()
+products_df = generate_products()
+orders_df = generate_orders(customer_data=customers_df.to_dict('records'))
+order_details_df = generate_order_details(orders_df, products_df)
+shipments_df = generate_shipments(orders_df)
+category_df = generate_category()
+
+# Saving data to CSV format
+customers_df.to_csv("customers.csv", index=False)
+products_df.to_csv("products.csv", index=False)
+orders_df.to_csv("orders.csv", index=False)
+order_details_df.to_csv("order_details.csv", index=False)
+shipments_df.to_csv("shipments.csv", index=False)
+category_df.to_csv("category.csv", index=False)
+
+
+print("Data generation completed successfully.")
